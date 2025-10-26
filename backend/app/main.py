@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import os
@@ -39,14 +39,29 @@ def verify_credentials(email: str, password: str) -> bool:
     return email == admin_email and password == admin_password
 
 # Dependencies
-async def get_current_user(email: str, password: str):
-    """Simple authentication dependency for GET requests"""
-    if not verify_credentials(email, password):
+async def get_current_user(
+    email: str = Form(None),
+    password: str = Form(None),
+    email_query: str = Query(None),
+    password_query: str = Query(None)
+):
+    """Simple authentication dependency that accepts both form data and query parameters"""
+    # Use form data if available (for POST/PUT requests), otherwise use query parameters (for GET requests)
+    auth_email = email or email_query
+    auth_password = password or password_query
+
+    if not auth_email or not auth_password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email and password are required"
+        )
+
+    if not verify_credentials(auth_email, auth_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
         )
-    return {"email": email, "authenticated": True}
+    return {"email": auth_email, "authenticated": True}
 
 # Routes
 
@@ -114,12 +129,21 @@ def create_client(client: ClientCreate, current_user: dict = Depends(get_current
     return db_client
 
 @app.get("/clients/", response_model=List[Client])
-def read_clients(current_user: dict = Depends(get_current_user), skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def read_clients(
+    current_user: dict = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
     clients = db.query(Client).offset(skip).limit(limit).all()
     return clients
 
 @app.get("/clients/{client_id}", response_model=Client)
-def read_client(client_id: int, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+def read_client(
+    client_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     db_client = db.query(Client).filter(Client.id == client_id).first()
     if db_client is None:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -186,7 +210,11 @@ def read_blog_posts(
     return blog_posts
 
 @app.get("/blogs/{blog_id}", response_model=BlogPost)
-def read_blog_post(blog_id: int, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+def read_blog_post(
+    blog_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     db_blog_post = db.query(BlogPost).filter(BlogPost.id == blog_id).first()
     if db_blog_post is None:
         raise HTTPException(status_code=404, detail="Blog post not found")

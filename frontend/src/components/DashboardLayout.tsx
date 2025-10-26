@@ -9,14 +9,14 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { user, logout, loading } = useAuth()
+  const { isAuthenticated, logout, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !isAuthenticated) {
       router.push('/')
     }
-  }, [user, loading, router])
+  }, [isAuthenticated, loading, router])
 
   if (loading) {
     return (
@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     )
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     return null
   }
 
@@ -47,10 +47,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-700">
-                Welcome, {user.username}
+                Welcome, Admin
               </span>
               <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                {user.role}
+                admin
               </span>
               <button
                 onClick={handleLogout}

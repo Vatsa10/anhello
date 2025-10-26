@@ -6,14 +6,14 @@ import { useAuth } from '@/lib/auth'
 import LoginForm from '@/components/LoginForm'
 
 export default function Home() {
-  const { user, loading } = useAuth()
+  const { isAuthenticated, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && isAuthenticated) {
       router.push('/dashboard')
     }
-  }, [user, loading, router])
+  }, [isAuthenticated, loading, router])
 
   if (loading) {
     return (
@@ -26,7 +26,7 @@ export default function Home() {
     )
   }
 
-  if (user) {
+  if (isAuthenticated) {
     return null // Will redirect to dashboard
   }
 

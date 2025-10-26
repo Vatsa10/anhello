@@ -5,10 +5,10 @@ A full-stack blog management system for SEO teams to manage client websites' blo
 ## Features
 
 - **Multi-client Support**: Manage blog posts for multiple client websites
-- **User Management**: Role-based access (admin/editor) with JWT authentication
+- **Simple Authentication**: Easy login with fixed credentials (no complex user management)
 - **Blog CRUD Operations**: Create, read, update, delete blog posts
 - **Image Upload**: Upload and manage featured images for blog posts
-- **Rich Content**: WYSIWYG editor support for blog content
+- **Rich Content**: Ready for WYSIWYG editor integration
 - **Search & Filtering**: Filter posts by client, status, and search content
 - **Responsive Design**: Modern UI with Tailwind CSS and shadcn/ui components
 - **Docker Support**: Complete containerized setup with docker-compose
@@ -20,7 +20,7 @@ A full-stack blog management system for SEO teams to manage client websites' blo
 | **Backend** | FastAPI | REST API for blog management |
 | **Database** | PostgreSQL | Main data store |
 | **ORM** | SQLAlchemy + Alembic | Schema definition + migrations |
-| **Auth** | JWT | Secure user access |
+| **Auth** | Simple Email/Password | Basic authentication |
 | **Frontend** | Next.js + TypeScript | Admin dashboard |
 | **Styling** | Tailwind CSS | UI framework |
 | **Deployment** | Docker Compose | Multi-service container setup |
@@ -30,8 +30,6 @@ A full-stack blog management system for SEO teams to manage client websites' blo
 ### Prerequisites
 
 - Docker and Docker Compose
-- Node.js 18+ (for development)
-- Python 3.11+ (for development)
 
 ### Using Docker (Recommended)
 
@@ -43,7 +41,12 @@ A full-stack blog management system for SEO teams to manage client websites' blo
 
 2. **Start the Application**
    ```bash
-   docker-compose up -d
+   # On Windows
+   setup.bat
+
+   # On Linux/Mac
+   chmod +x setup.sh
+   ./setup.sh
    ```
 
 3. **Access the Application**
@@ -51,19 +54,11 @@ A full-stack blog management system for SEO teams to manage client websites' blo
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
 
-4. **Create Admin User**
-   Access the PostgreSQL container and create an admin user:
-   ```bash
-   docker-compose exec postgres psql -U blog_user -d blog_panel
+4. **Login Credentials**
    ```
-
-   Then run:
-   ```sql
-   INSERT INTO users (username, email, hashed_password, role, is_active)
-   VALUES ('admin', 'admin@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj6fEtTT2/Dy', 'admin', true);
+   Email: admin@example.com
+   Password: admin123
    ```
-
-   The password is `admin123` (bcrypt hashed).
 
 ### Local Development
 
@@ -93,7 +88,6 @@ blog-panel/
 │   │   ├── main.py         # Main FastAPI application
 │   │   ├── models.py       # SQLAlchemy models
 │   │   ├── schemas.py      # Pydantic schemas
-│   │   ├── auth.py         # Authentication utilities
 │   │   ├── database.py     # Database configuration
 │   │   └── __init__.py
 │   ├── alembic/            # Database migrations
@@ -118,7 +112,7 @@ blog-panel/
 ## API Endpoints
 
 ### Authentication
-- `POST /token` - Login and get JWT token
+- `POST /login` - Simple login with email/password
 - `GET /users/me` - Get current user info
 
 ### Clients
@@ -136,24 +130,45 @@ blog-panel/
 ### File Upload
 - `POST /upload/` - Upload image files
 
+## Authentication
+
+The system uses simple authentication with fixed credentials:
+
+**Default Login:**
+- Email: `admin@example.com`
+- Password: `admin123`
+
+You can change these credentials in the environment variables:
+- `ADMIN_EMAIL` - Admin email address
+- `ADMIN_PASSWORD` - Admin password
+
 ## Environment Variables
 
 ### Backend (.env)
 ```env
+# Database Configuration
 DATABASE_URL=postgresql://blog_user:blog_password@localhost:5432/blog_panel
-SECRET_KEY=your-secret-key-change-this-in-production
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# Application Configuration
 DEBUG=True
 API_HOST=0.0.0.0
 API_PORT=8000
+
+# Upload Configuration
 UPLOAD_DIR=../uploads
 MAX_FILE_SIZE=10485760
+
+# Simple Auth Configuration
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin123
 ```
 
 ### Frontend (.env.local)
 ```env
+# Backend API Configuration
 NEXT_PUBLIC_API_URL=http://localhost:8000
+
+# Application Configuration
 NEXT_PUBLIC_APP_NAME=Blog Panel
 NEXT_PUBLIC_APP_VERSION=1.0.0
 ```

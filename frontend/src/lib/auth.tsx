@@ -1,13 +1,13 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { User, UserLogin, AuthResponse } from '@/types/api'
+import { SimpleLogin, AuthResponse, User } from '@/types/api'
 import { authAPI } from '@/lib/api'
 
 interface AuthContextType {
   user: User | null
-  token: string | null
-  login: (credentials: UserLogin) => Promise<void>
+  isAuthenticated: boolean
+  login: (credentials: SimpleLogin) => Promise<void>
   logout: () => void
   loading: boolean
 }
@@ -16,50 +16,51 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is logged in on mount
-    const storedToken = localStorage.getItem('token')
-    if (storedToken) {
-      setToken(storedToken)
-      // Fetch current user
-      authAPI.getCurrentUser()
-        .then(setUser)
-        .catch(() => {
-          // Token is invalid, remove it
-          localStorage.removeItem('token')
-          setToken(null)
-        })
-        .finally(() => setLoading(false))
-    } else {
-      setLoading(false)
-    }
+    // Check if user is already authenticated (for simple auth, we don't persist)
+    setLoading(false)
   }, [])
 
-  const login = async (credentials: UserLogin) => {
+  const login = async (credentials: SimpleLogin) => {
     try {
+      setLoading(true)
       const response: AuthResponse = await authAPI.login(credentials)
-      localStorage.setItem('token', response.access_token)
-      setToken(response.access_token)
 
-      // Fetch user data
-      const userData = await authAPI.getCurrentUser()
-      setUser(userData)
+      if (response.authenticated) {
+        // For simple auth, create a basic user object
+        const userData: User = {
+          id: 1,
+          username: "admin",
+          email: credentials.email,
+          role: "admin",
+          is_active: true,
+          created_at: new Date().toISOString()
+        }
+
+        setUser(userData)
+        setIsAuthenticated(true)
+      } else {
+        throw new Error('Authentication failed')
+      }
     } catch (error) {
+      setIsAuthenticated(false)
+      setUser(null)
       throw new Error('Invalid credentials')
+    } finally {
+      setLoading(false)
     }
   }
 
   const logout = () => {
-    localStorage.removeItem('token')
-    setToken(null)
+    setIsAuthenticated(false)
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   )

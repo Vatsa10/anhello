@@ -70,14 +70,7 @@ class BlogPost(BlogPostBase):
     class Config:
         from_attributes = True
 
-# Auth schemas
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-class TokenData(BaseModel):
-    username: Optional[str] = None
-
-class UserLogin(BaseModel):
-    username: str
+# Simple Auth schemas
+class SimpleLogin(BaseModel):
+    email: EmailStr
     password: str

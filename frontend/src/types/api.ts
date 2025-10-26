@@ -56,14 +56,15 @@ export interface BlogPostUpdate {
   status?: string
 }
 
-export interface UserLogin {
-  username: string
+export interface SimpleLogin {
+  email: string
   password: string
 }
 
 export interface AuthResponse {
-  access_token: string
-  token_type: string
+  message: string
+  email: string
+  authenticated: boolean
 }
 
 export interface ApiResponse<T> {

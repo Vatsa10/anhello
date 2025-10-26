@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth'
-import { UserLogin } from '@/types/api'
+import { SimpleLogin } from '@/types/api'
 
 export default function LoginForm() {
-  const [credentials, setCredentials] = useState<UserLogin>({
-    username: '',
-    password: '',
+  const [credentials, setCredentials] = useState<SimpleLogin>({
+    email: 'admin@example.com',
+    password: 'admin123',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,7 +21,7 @@ export default function LoginForm() {
     try {
       await login(credentials)
     } catch (err) {
-      setError('Invalid username or password')
+      setError('Invalid credentials')
     } finally {
       setLoading(false)
     }
@@ -48,14 +48,14 @@ export default function LoginForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-            Username
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            Email
           </label>
           <input
-            type="text"
-            id="username"
-            name="username"
-            value={credentials.username}
+            type="email"
+            id="email"
+            name="email"
+            value={credentials.email}
             onChange={handleChange}
             required
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -85,6 +85,14 @@ export default function LoginForm() {
           {loading ? 'Signing in...' : 'Sign In'}
         </button>
       </form>
+
+      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+        <p className="text-sm text-blue-700">
+          <strong>Default Credentials:</strong><br />
+          Email: admin@example.com<br />
+          Password: admin123
+        </p>
+      </div>
     </div>
   )
 }

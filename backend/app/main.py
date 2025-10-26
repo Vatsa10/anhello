@@ -1,21 +1,16 @@
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import os
 import shutil
-from datetime import timedelta
+from datetime import datetime
 from typing import List, Optional
 
 from app.database import get_db, engine
 from app.models import Base, User, Client, BlogPost
 from app.schemas import (
     UserCreate, User, ClientCreate, Client, BlogPostCreate, BlogPostUpdate,
-    BlogPost, UserLogin, Token
-)
-from app.auth import (
-    verify_password, get_password_hash, create_access_token,
-    verify_token, ACCESS_TOKEN_EXPIRE_MINUTES
+    BlogPost, SimpleLogin
 )
 
 # Create tables
@@ -36,40 +31,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+# Simple authentication function
+def verify_credentials(email: str, password: str) -> bool:
+    """Simple authentication against environment variables"""
+    admin_email = os.getenv("ADMIN_EMAIL", "admin@example.com")
+    admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
+    return email == admin_email and password == admin_password
 
 # Dependencies
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    username = verify_token(token, credentials_exception)
-    user = db.query(User).filter(User.username == username).first()
-    if user is None:
-        raise credentials_exception
-    return user
+async def get_current_user(email: str = Form(...), password: str = Form(...)):
+    """Simple authentication dependency"""
+    if not verify_credentials(email, password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+    return {"email": email, "authenticated": True}
 
 # Routes
 
-@app.post("/token", response_model=Token)
-async def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
-):
-    user = db.query(User).filter(User.username == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+@app.post("/login")
+async def login(credentials: SimpleLogin):
+    """Simple login endpoint"""
+    if verify_credentials(credentials.email, credentials.password):
+        return {
+            "message": "Login successful",
+            "email": credentials.email,
+            "authenticated": True
+        }
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid credentials"
     )
-    return {"access_token": access_token, "token_type": "bearer"}
 
 # User routes
 @app.post("/users/", response_model=User)
@@ -82,11 +75,11 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     if db_email:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    hashed_password = get_password_hash(user.password)
+    # For simple auth, we'll store password as plain text (not recommended for production)
     db_user = User(
         username=user.username,
         email=user.email,
-        hashed_password=hashed_password,
+        hashed_password=user.password,  # Storing as plain text for simplicity
         role=user.role
     )
     db.add(db_user)
@@ -95,12 +88,21 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     return db_user
 
 @app.get("/users/me", response_model=User)
-async def read_users_me(current_user: User = Depends(get_current_user)):
-    return current_user
+async def read_users_me(current_user: dict = Depends(get_current_user)):
+    # In a real app, you'd fetch the user from database
+    # For now, return a mock user
+    return User(
+        id=1,
+        username="admin",
+        email=current_user["email"],
+        role="admin",
+        is_active=True,
+        created_at=datetime.now()
+    )
 
 # Client routes
 @app.post("/clients/", response_model=Client)
-def create_client(client: ClientCreate, db: Session = Depends(get_db)):
+def create_client(client: ClientCreate, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     db_client = db.query(Client).filter(Client.domain == client.domain).first()
     if db_client:
         raise HTTPException(status_code=400, detail="Domain already registered")
@@ -112,12 +114,12 @@ def create_client(client: ClientCreate, db: Session = Depends(get_db)):
     return db_client
 
 @app.get("/clients/", response_model=List[Client])
-def read_clients(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def read_clients(current_user: dict = Depends(get_current_user), skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     clients = db.query(Client).offset(skip).limit(limit).all()
     return clients
 
 @app.get("/clients/{client_id}", response_model=Client)
-def read_client(client_id: int, db: Session = Depends(get_db)):
+def read_client(client_id: int, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     db_client = db.query(Client).filter(Client.id == client_id).first()
     if db_client is None:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -127,7 +129,7 @@ def read_client(client_id: int, db: Session = Depends(get_db)):
 @app.post("/blogs/", response_model=BlogPost)
 def create_blog_post(
     blog_post: BlogPostCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     # Check if slug already exists
@@ -135,9 +137,22 @@ def create_blog_post(
     if db_blog:
         raise HTTPException(status_code=400, detail="Slug already exists")
 
+    # Create a mock author for simplicity (in real app, you'd get from current_user)
+    author = db.query(User).filter(User.role == "admin").first()
+    if not author:
+        author = User(
+            username="admin",
+            email="admin@example.com",
+            hashed_password="admin123",
+            role="admin"
+        )
+        db.add(author)
+        db.commit()
+        db.refresh(author)
+
     db_blog_post = BlogPost(
         **blog_post.dict(),
-        author_id=current_user.id
+        author_id=author.id
     )
     db.add(db_blog_post)
     db.commit()
@@ -146,6 +161,7 @@ def create_blog_post(
 
 @app.get("/blogs/", response_model=List[BlogPost])
 def read_blog_posts(
+    current_user: dict = Depends(get_current_user),
     skip: int = 0,
     limit: int = 100,
     client_id: Optional[int] = None,
@@ -170,7 +186,7 @@ def read_blog_posts(
     return blog_posts
 
 @app.get("/blogs/{blog_id}", response_model=BlogPost)
-def read_blog_post(blog_id: int, db: Session = Depends(get_db)):
+def read_blog_post(blog_id: int, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     db_blog_post = db.query(BlogPost).filter(BlogPost.id == blog_id).first()
     if db_blog_post is None:
         raise HTTPException(status_code=404, detail="Blog post not found")
@@ -180,7 +196,7 @@ def read_blog_post(blog_id: int, db: Session = Depends(get_db)):
 def update_blog_post(
     blog_id: int,
     blog_post_update: BlogPostUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     db_blog_post = db.query(BlogPost).filter(BlogPost.id == blog_id).first()
@@ -198,7 +214,7 @@ def update_blog_post(
 @app.delete("/blogs/{blog_id}")
 def delete_blog_post(
     blog_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     db_blog_post = db.query(BlogPost).filter(BlogPost.id == blog_id).first()
@@ -213,7 +229,7 @@ def delete_blog_post(
 @app.post("/upload/")
 async def upload_image(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     # Validate file type
     allowed_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]

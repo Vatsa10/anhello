@@ -3,5 +3,5 @@ venv
 .env.local
 node_modules
 llm.md
-.next
+*/.next
 __pycache__

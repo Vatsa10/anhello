@@ -39,8 +39,8 @@ def verify_credentials(email: str, password: str) -> bool:
     return email == admin_email and password == admin_password
 
 # Dependencies
-async def get_current_user(email: str = Form(...), password: str = Form(...)):
-    """Simple authentication dependency"""
+async def get_current_user(email: str, password: str):
+    """Simple authentication dependency for GET requests"""
     if not verify_credentials(email, password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

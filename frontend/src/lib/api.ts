@@ -6,7 +6,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
+    // Remove Content-Type header to allow axios to set it automatically for FormData
   },
 })
 
@@ -25,13 +25,12 @@ export const authAPI = {
     return response.data
   },
   getCurrentUser: async (): Promise<User> => {
-    // For simple auth, we'll use a different approach
-    // Send credentials with each request as form data
-    const formData = new FormData()
-    formData.append('email', 'admin@example.com')
-    formData.append('password', 'admin123')
-
-    const response = await api.get('/users/me', { data: formData })
+    const response = await api.get('/users/me', {
+      params: {
+        email: 'admin@example.com',
+        password: 'admin123'
+      }
+    })
     return response.data
   },
 }
@@ -39,19 +38,21 @@ export const authAPI = {
 // Clients API
 export const clientsAPI = {
   getAll: async (): Promise<Client[]> => {
-    const formData = new FormData()
-    formData.append('email', 'admin@example.com')
-    formData.append('password', 'admin123')
-
-    const response = await api.get('/clients/', { data: formData })
+    const response = await api.get('/clients/', {
+      params: {
+        email: 'admin@example.com',
+        password: 'admin123'
+      }
+    })
     return response.data
   },
   getById: async (id: number): Promise<Client> => {
-    const formData = new FormData()
-    formData.append('email', 'admin@example.com')
-    formData.append('password', 'admin123')
-
-    const response = await api.get(`/clients/${id}`, { data: formData })
+    const response = await api.get(`/clients/${id}`, {
+      params: {
+        email: 'admin@example.com',
+        password: 'admin123'
+      }
+    })
     return response.data
   },
   create: async (client: Omit<Client, 'id' | 'created_at'>): Promise<Client> => {
@@ -79,22 +80,22 @@ export const blogPostsAPI = {
     status?: string
     search?: string
   }): Promise<BlogPost[]> => {
-    const formData = new FormData()
-    formData.append('email', 'admin@example.com')
-    formData.append('password', 'admin123')
-
     const response = await api.get('/blogs/', {
-      data: formData,
-      params
+      params: {
+        email: 'admin@example.com',
+        password: 'admin123',
+        ...params
+      }
     })
     return response.data
   },
   getById: async (id: number): Promise<BlogPost> => {
-    const formData = new FormData()
-    formData.append('email', 'admin@example.com')
-    formData.append('password', 'admin123')
-
-    const response = await api.get(`/blogs/${id}`, { data: formData })
+    const response = await api.get(`/blogs/${id}`, {
+      params: {
+        email: 'admin@example.com',
+        password: 'admin123'
+      }
+    })
     return response.data
   },
   create: async (blogPost: BlogPostCreate): Promise<BlogPost> => {
